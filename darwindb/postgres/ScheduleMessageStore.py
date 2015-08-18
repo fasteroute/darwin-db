@@ -109,6 +109,8 @@ class ScheduleMessageStore(BaseStore):
                 ", ".join(["{}=%s".format(k) for k, v in list(self.table_schedule_fields.items())[1:14]]),
                 "rid=%s")
 
+        self.cursor = None
+
     def create_tables(self):
         cursor = self.connection.cursor()
         
@@ -126,19 +128,20 @@ class ScheduleMessageStore(BaseStore):
         cursor.close()
 
     def save_schedule_message(self, message):
+        if self.cursor is None:
+            self.cursor = self.connection.cursor()
+
         # Calculate the date-times on the schedule message.
         self.build_sanitised_times(message)
 
         # Check if the schedule message is already found with that RTTI ID
-        cursor = self.connection.cursor()
-
-        cursor.execute("SELECT rid FROM schedule WHERE rid=%s", (message["rid"],));
+        self.cursor.execute("SELECT rid FROM schedule WHERE rid=%s", (message["rid"],));
 
         #print("*** Saving Schedule Message.")
 
         # Check if this is a new Schedule.
-        if cursor.rowcount == 0:
-            cursor.execute(self.insert_schedule_query, (
+        if self.cursor.rowcount == 0:
+            self.cursor.execute(self.insert_schedule_query, (
                 message["rid"],
                 message["uid"],
                 message["headcode"],
@@ -155,7 +158,7 @@ class ScheduleMessageStore(BaseStore):
                 message["cancellation_reason"].get("near", None) if message.get("cancellation_reason", None) is not None else None,
             ))
         else:
-           cursor.execute(self.update_schedule_query, (
+           self.cursor.execute(self.update_schedule_query, (
                 message["uid"],
                 message["headcode"],
                 message["start_date"],
@@ -172,10 +175,10 @@ class ScheduleMessageStore(BaseStore):
                 message["rid"],
             ))
            # FIXME: Save forecast components before deleting...
-           cursor.execute("DELETE from {} WHERE rid=%s".format(self.table_schedule_location_name), (message["rid"],));
+           self.cursor.execute("DELETE from {} WHERE rid=%s".format(self.table_schedule_location_name), (message["rid"],));
         i = 0
         for p in message["locations"]:
-            cursor.execute(self.insert_schedule_location_query, (
+            self.cursor.execute(self.insert_schedule_location_query, (
                 message["rid"],
                 p["location_type"],
                 i,
@@ -199,7 +202,6 @@ class ScheduleMessageStore(BaseStore):
             i += 1
         
         self.connection.commit()
-        cursor.close()
 
     def build_sanitised_times(self, message):
         # Convert the start date to a date.
