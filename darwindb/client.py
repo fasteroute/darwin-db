@@ -25,7 +25,7 @@ class Client:
         self.conn.set_listener('', self)
         self.conn.start()
         self.conn.connect(user, password)
-        self.conn.subscribe(queue, ack='auto', id='1')
+        self.conn.subscribe(queue, ack='client', id='1')
 
     def on_error(self, headers, message):
         log.debug("StompClient.onError(headers={}, message={})".format(headers, message))
@@ -56,5 +56,8 @@ class Client:
 
         if has_method(self.cb, "on_message"):
             self.cb.on_message(headers, message)
+
+    def ack(self, message_id):
+        self.conn.ack(message_id)
 
 

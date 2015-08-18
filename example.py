@@ -7,18 +7,20 @@ import json
 import time
 
 class Listener:
-    def __init__(self):
+    def __init__(self, client):
         self.connection = PostgresConnection("172.17.0.2", "postgres", "postgres", "mysecretpassword")
         
         self.schedule_store = ScheduleMessageStore(self.connection)
         self.train_status_store = TrainStatusMessageStore(self.connection)
+
+        self.client = client
         
     def on_connected(self, headers, body):
         self.connection.connect()
         self.schedule_store.create_tables()
         self.train_status_store.create_tables()
     
-    def on_message(self, header, message):
+    def on_message(self, headers, message):
         m = json.loads(message.decode("utf-8"))
 
         if "schedule_messages" in m and len(m["schedule_messages"]) > 0:
@@ -31,9 +33,12 @@ class Listener:
         for s in m["train_status_messages"]:
             self.train_status_store.save_train_status_message(s)
 
-l = Listener()
+        # Now we have finished processing, ack the message.
+        self.client.ack(headers["ack"])
 
 c = Client()
+l = Listener(c)
+
 c.connect("172.17.0.1", 61613, "admin", "pass", "Consumer.Example.VirtualTopic.PushPortJson", l)
 
 while True:
