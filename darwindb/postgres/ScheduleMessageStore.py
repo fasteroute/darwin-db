@@ -26,6 +26,7 @@ class ScheduleMessageStore(BaseStore):
             ("cancellation_reason_code", "integer"),
             ("cancellation_reason_tiploc", "varchar"),
             ("cancellation_reason_near", "boolean"),
+            ("timezone", "varchar"),
             ("reverse_formation", "boolean"),
             ("late_reason_code", "integer"),
             ("late_reason_tiploc", "varchar"),
@@ -96,8 +97,8 @@ class ScheduleMessageStore(BaseStore):
 
         self.insert_schedule_query = "INSERT into {} ({}) VALUES({})".format(
                 self.table_schedule_name,
-                ", ".join(["{}".format(k) for k, v in list(self.table_schedule_fields.items())[0:14]]),
-                ", ".join(["%s" for n in range(0, 14)]))
+                ", ".join(["{}".format(k) for k, v in list(self.table_schedule_fields.items())[0:15]]),
+                ", ".join(["%s" for n in range(0, 15)]))
         
         self.insert_schedule_location_query = "INSERT into {} ({}) VALUES({})".format(
                 self.table_schedule_location_name,
@@ -106,7 +107,7 @@ class ScheduleMessageStore(BaseStore):
 
         self.update_schedule_query = "UPDATE {} SET {} WHERE {}".format(
                 self.table_schedule_name,
-                ", ".join(["{}=%s".format(k) for k, v in list(self.table_schedule_fields.items())[1:14]]),
+                ", ".join(["{}=%s".format(k) for k, v in list(self.table_schedule_fields.items())[1:15]]),
                 "rid=%s")
 
         self.cursor = None
@@ -156,6 +157,7 @@ class ScheduleMessageStore(BaseStore):
                 message["cancellation_reason"]["code"] if message.get("cancellation_reason", None) is not None else None,
                 message["cancellation_reason"].get("tiploc", None) if message.get("cancellation_reason", None) is not None else None,
                 message["cancellation_reason"].get("near", None) if message.get("cancellation_reason", None) is not None else None,
+                message["timezone"].zone,
             ))
         else:
            self.cursor.execute(self.update_schedule_query, (
@@ -172,6 +174,7 @@ class ScheduleMessageStore(BaseStore):
                 message["cancellation_reason"]["code"] if message.get("cancellation_reason", None) is not None else None,
                 message["cancellation_reason"].get("tiploc", None) if message.get("cancellation_reason", None) is not None else None,
                 message["cancellation_reason"].get("near", None) if message.get("cancellation_reason", None) is not None else None,
+                message["timezone"].zone,
                 message["rid"],
             ))
            # FIXME: Save forecast components before deleting...
@@ -241,12 +244,12 @@ class ScheduleMessageStore(BaseStore):
         else:
             raise Exception()
 
-        tz = timezone_for_date_and_time(message["start_date"], t)
+        message["timezone"] = timezone_for_date_and_time(message["start_date"], t)
 
         day_incrementor = 0
         o = None
         for p in message["locations"]:
-            day_incrementor = self.build_times(day_incrementor, o, p, message["start_date"], tz)
+            day_incrementor = self.build_times(day_incrementor, o, p, message["start_date"], message["timezone"])
             o = p
 
     def build_times(self, day_incrementor, last_location, this_location, start_date, tz):

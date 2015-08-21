@@ -5,6 +5,8 @@ from dateutil.parser import parse
 
 from collections import OrderedDict
 
+import pytz
+
 class TrainStatusMessageStore(BaseStore):
     
     def __init__(self, connection):
@@ -13,7 +15,7 @@ class TrainStatusMessageStore(BaseStore):
 
         self.update_schedule_query = "UPDATE {} SET {} WHERE {}".format(
                 s.table_schedule_name,
-                ", ".join(["{}=%s".format(k) for k, v in list(s.table_schedule_fields.items())[14:]]),
+                ", ".join(["{}=%s".format(k) for k, v in list(s.table_schedule_fields.items())[15:]]),
                 "rid=%s")
 
         self.select_location_query_prepare = "PREPARE ts_select_location_query as SELECT {} from {} WHERE {}".format(
@@ -40,6 +42,13 @@ class TrainStatusMessageStore(BaseStore):
                 "suppressed=$1",
                 "id=$2")
 
+        self.select_tz_prepare = "PREPARE ts_select_tz as SELECT {} from {} WHERE {}".format(
+                "timezone",
+                s.table_schedule_name,
+                "rid=$1")
+
+        self.select_tz_execute = "EXECUTE ts_select_tz (%s)"
+
         self.cursor = None
 
     def create_tables(self):
@@ -57,6 +66,7 @@ class TrainStatusMessageStore(BaseStore):
 #            self.cursor.execute(self.select_location_query_prepare)
             self.cursor.execute(self.select_points_prepare)
             self.cursor.execute(self.update_point_prepare)
+            self.cursor.execute(self.select_tz_prepare)
 
         self.cursor.execute("EXECUTE ts_select_points (%s)", (message["rid"],))
 
@@ -65,7 +75,17 @@ class TrainStatusMessageStore(BaseStore):
         else:
             print("+++ Schedule record is present. Can apply.")
 
+            # Get the rows from that query.
             rows = self.cursor.fetchall()
+
+            # Get the timezone to apply the schedule to.
+            self.cursor.execute(self.select_tz_execute, (message["rid"],))
+            if self.cursor.rowcount != 1:
+                print("ERROR Row Count not equal to one when getting timezone. This should be impossible.")
+                return
+
+            tz = pytz.timezone(self.cursor.fetchall()[0][0])
+
             for r in rows:
                 found = False
                 for m in message["locations"]:
