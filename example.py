@@ -4,6 +4,7 @@ from darwindb.postgres import Connection as PostgresConnection
 from darwindb.postgres import ScheduleMessageStore, TrainStatusMessageStore
 
 import json
+import os
 import time
 
 class Listener:
@@ -39,7 +40,7 @@ class Listener:
 c = Client()
 l = Listener(c)
 
-c.connect("172.17.0.1", 61613, "admin", "pass", "Consumer.Example.VirtualTopic.PushPortJson", l)
+c.connect(os.environ["STOMP_HOST"], 61613, "admin", "pass", "Consumer.Example.VirtualTopic.PushPortJson", l)
 
 while True:
     time.sleep(1)
