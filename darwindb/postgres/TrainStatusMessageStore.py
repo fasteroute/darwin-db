@@ -1,11 +1,16 @@
 from darwindb.postgres.BaseStore import BaseStore
 from darwindb.postgres.ScheduleMessageStore import ScheduleMessageStore
 
+from datetime import datetime, date, time, timedelta
 from dateutil.parser import parse
 
 from collections import OrderedDict
 
 import pytz
+
+def subtract_times(a, b):
+    delta = datetime.combine(date.today(), a) - datetime.combine(date.today(), b)
+    return (delta.days*24*60*60)+delta.seconds
 
 class TrainStatusMessageStore(BaseStore):
     
@@ -37,10 +42,37 @@ class TrainStatusMessageStore(BaseStore):
                 s.table_schedule_location_name,
                 "rid=$1")
 
-        self.update_point_prepare = "PREPARE ts_update_point as UPDATE {} SET {} WHERE {}".format(
+        self.update_point_prepare = "PREPARE ts_update_point as UPDATE {} SET {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} WHERE {}".format(
                 s.table_schedule_location_name,
                 "suppressed=$1",
-                "id=$2")
+                "forecast_arrival_estimated_time=$2",
+                "forecast_arrival_working_estimated_time=$3",
+                "forecast_arrival_actual_time=$4",
+                "forecast_arrival_actual_time_removed=$5",
+                "forecast_arrival_manual_estimate_lower_limit=$6",
+                "forecast_arrival_manual_estimate_unknown_delay=$7",
+                "forecast_arrival_unknown_delay=$8",
+                "forecast_arrival_source=$9",
+                "forecast_arrival_source_cis=$10",
+                "forecast_pass_estimated_time=$11",
+                "forecast_pass_working_estimated_time=$12",
+                "forecast_pass_actual_time=$13",
+                "forecast_pass_actual_time_removed=$14",
+                "forecast_pass_manual_estimate_lower_limit=$15",
+                "forecast_pass_manual_estimate_unknown_delay=$16",
+                "forecast_pass_unknown_delay=$17",
+                "forecast_pass_source=$18",
+                "forecast_pass_source_cis=$19",
+                "forecast_departure_estimated_time=$20",
+                "forecast_departure_working_estimated_time=$21",
+                "forecast_departure_actual_time=$22",
+                "forecast_departure_actual_time_removed=$23",
+                "forecast_departure_manual_estimate_lower_limit=$24",
+                "forecast_departure_manual_estimate_unknown_delay=$25",
+                "forecast_departure_unknown_delay=$26",
+                "forecast_departure_source=$27",
+                "forecast_departure_source_cis=$28",
+                "id=$29")
 
         self.select_tz_prepare = "PREPARE ts_select_tz as SELECT {} from {} WHERE {}".format(
                 "timezone",
@@ -86,9 +118,9 @@ class TrainStatusMessageStore(BaseStore):
 
             tz = pytz.timezone(self.cursor.fetchall()[0][0])
 
-            for r in rows:
+            for m in message["locations"]:
                 found = False
-                for m in message["locations"]:
+                for r in rows:
                     #print("{} : {} : {} : {}".format(r[1], r[7], r[9], r[11]))
                     if r[1] == m["tiploc"] and \
                     r[7] == m["raw_working_arrival_time"] and \
@@ -96,73 +128,153 @@ class TrainStatusMessageStore(BaseStore):
                     r[11] == m["raw_working_departure_time"]:
                         #print("    +++ Found matching row.")
                         found = True
-                        self.cursor.execute("EXECUTE ts_update_point (%s, %s)", (None if "suppressed" not in m else m["suppressed"], r[0],))
+                        
+                        # Now figure out the times that belong in the forecasts.
+                        # For each time work out if the date has progressed.
+                        arrival_working_estimated_time = None
+                        if r[7] is not None:
+                            if m["arrival"] is not None and m["arrival"].get("working_estimated_time", None) is not None:
+                                arrival_working_estimated_time = self.determine_stuff(r[2], tz, r[7], parse(m["arrival"]["working_estimated_time"]).time())
+                        
+                        arrival_estimated_time = None
+                        if r[8] is not None:
+                            if m["arrival"] is not None and m["arrival"].get("estimated_time", None) is not None:
+                                arrival_estimated_time = self.determine_stuff(r[3], tz, r[8], parse(m["arrival"]["estimated_time"]).time())
+                        elif r[7] is not None:
+                            if m["arrival"] is not None and m["arrival"].get("estimated_time", None) is not None:
+                                arrival_estimated_time = self.determine_stuff(r[2], tz, r[7], parse(m["arrival"]["estimated_time"]).time())
+                        
+                        arrival_actual_time = None
+                        if r[7] is not None:
+                            if m["arrival"] is not None and m["arrival"].get("actual_time", None) is not None:
+                                arrival_actual_time = self.determine_stuff(r[2], tz, r[7], parse(m["arrival"]["actual_time"]).time())
+
+                        arrival_manual_estimate_lower_limit = None
+                        if r[7] is not None:
+                            if m["arrival"] is not None and m["arrival"].get("manual_estimate_lower_limit_minutes", None) is not None:
+                                arrival_manual_estimate_lower_limit = self.determine_stuff(r[2], tz, r[7], parse(m["arrival"]["manual_estimate_lower_limit_minutes"]).time())
+
+                        arrival_actual_time_removed = None
+                        arrival_manual_estimate_unknown_delay = None
+                        arrival_unknown_delay = None
+                        arrival_source = None
+                        arrival_source_cis = None
+
+                        if m.get("arrival", None) is not None:
+                            arrival_actual_time_removed = m["arrival"].get("actual_time_removed", None)
+                            arrival_manual_estimate_unknown_delay = m["arrival"].get("manual_estimate_unknown_delay", None)
+                            arrival_unknown_delay = m["arrival"].get("unknown_delay", None)
+                            arrival_source = m["arrival"].get("source", None)
+                            arrival_source_cis = m["arrival"].get("source_cis", None)
+
+
+                        pass_working_estimated_time = None
+                        if r[9] is not None:
+                            if m["pass"] is not None and m["pass"].get("working_estimated_time", None) is not None:
+                                pass_working_estimated_time = self.determine_stuff(r[4], tz, r[9], parse(m["pass"]["working_estimated_time"]).time())
+                        
+                        pass_estimated_time = None
+                        if r[9] is not None:
+                            if m["pass"] is not None and m["pass"].get("estimated_time", None) is not None:
+                                pass_estimated_time = self.determine_stuff(r[4], tz, r[9], parse(m["pass"]["estimated_time"]).time())
+                        
+                        pass_actual_time = None
+                        if r[9] is not None:
+                            if m["pass"] is not None and m["pass"].get("actual_time", None) is not None:
+                                pass_actual_time = self.determine_stuff(r[4], tz, r[9], parse(m["pass"]["actual_time"]).time())
+
+                        pass_manual_estimate_lower_limit = None
+                        if r[9] is not None:
+                            if m["pass"] is not None and m["pass"].get("manual_estimate_lower_limit_minutes", None) is not None:
+                                pass_manual_estimate_lower_limit = self.determine_stuff(r[4], tz, r[9], parse(m["pass"]["manual_estimate_lower_limit_minutes"]).time())
+
+                        pass_actual_time_removed = None
+                        pass_manual_estimate_unknown_delay = None
+                        pass_unknown_delay = None
+                        pass_source = None
+                        pass_source_cis = None
+
+                        if m.get("pass", None) is not None:
+                            pass_actual_time_removed = m["pass"].get("actual_time_removed", None)
+                            pass_manual_estimate_unknown_delay = m["pass"].get("manual_estimate_unknown_delay", None)
+                            pass_unknown_delay = m["pass"].get("unknown_delay", None)
+                            pass_source = m["pass"].get("source", None)
+                            pass_source_cis = m["pass"].get("source_cis", None)
+
+
+                        departure_working_estimated_time = None
+                        if r[7] is not None:
+                            if m.get("departure", None) is not None and m["departure"].get("working_estimated_time", None) is not None:
+                                departure_working_estimated_time = self.determine_stuff(r[2], tz, r[7], parse(m["departure"]["working_estimated_time"]).time())
+                        
+                        departure_estimated_time = None
+                        if r[8] is not None:
+                            if m.get("departure", None) is not None and m["departure"].get("estimated_time", None) is not None:
+                                departure_estimated_time = self.determine_stuff(r[3], tz, r[8], parse(m["departure"]["estimated_time"]).time())
+                        elif r[7] is not None:
+                            if m.get("departure", None) is not None and m["departure"].get("estimated_time", None) is not None:
+                                departure_estimated_time = self.determine_stuff(r[2], tz, r[7], parse(m["departure"]["estimated_time"]).time())
+                        
+                        departure_actual_time = None
+                        if r[7] is not None:
+                            if m.get("departure", None) is not None and m["departure"].get("actual_time", None) is not None:
+                                departure_actual_time = self.determine_stuff(r[2], tz, r[7], parse(m["departure"]["actual_time"]).time())
+
+                        departure_manual_estimate_lower_limit = None
+                        if r[7] is not None:
+                            if m.get("departure", None) is not None and m["departure"].get("manual_estimate_lower_limit_minutes", None) is not None:
+                                departure_manual_estimate_lower_limit = self.determine_stuff(r[2], tz, r[7], parse(m["departure"]["manual_estimate_lower_limit_minutes"]).time())
+
+                        departure_actual_time_removed = None
+                        departure_manual_estimate_unknown_delay = None
+                        departure_unknown_delay = None
+                        departure_source = None
+                        departure_source_cis = None
+
+                        if m.get("departure", None) is not None:
+                            departure_actual_time_removed = m["departure"].get("actual_time_removed", None)
+                            departure_manual_estimate_unknown_delay = m["departure"].get("manual_estimate_unknown_delay", None)
+                            departure_unknown_delay = m["departure"].get("unknown_delay", None)
+                            departure_source = m["departure"].get("source", None)
+                            departure_source_cis = m["departure"].get("source_cis", None)
+
+
+                        self.cursor.execute("EXECUTE ts_update_point (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (
+                            None if "suppressed" not in m else m["suppressed"],
+                            arrival_estimated_time,
+                            arrival_working_estimated_time,
+                            arrival_actual_time,
+                            arrival_actual_time_removed,
+                            arrival_manual_estimate_lower_limit,
+                            arrival_manual_estimate_unknown_delay,
+                            arrival_unknown_delay,
+                            arrival_source,
+                            arrival_source_cis,
+                            pass_estimated_time,
+                            pass_working_estimated_time,
+                            pass_actual_time,
+                            pass_actual_time_removed,
+                            pass_manual_estimate_lower_limit,
+                            pass_manual_estimate_unknown_delay,
+                            pass_unknown_delay,
+                            pass_source,
+                            pass_source_cis,
+                            departure_estimated_time,
+                            departure_working_estimated_time,
+                            departure_actual_time,
+                            departure_actual_time_removed,
+                            departure_manual_estimate_lower_limit,
+                            departure_manual_estimate_unknown_delay,
+                            departure_unknown_delay,
+                            departure_source,
+                            departure_source_cis,
+                            r[0],
+                        ))
                         break
                 if not found:
-                    #print("    --- Did not find matching row.")
+                    print("    --- Did not find matching row.")
                     pass
             
-#        self.cursor.execute("EXECUTE get_schedule_by_rid_count (%s)", (message['rid'],))
-#
-#        if self.cursor.rowcount != 1:
-#            print("--- Cannot apply because we don't have the relevant schedule record yet.")
-#            pass
-#        else:
-#            print("+++ Schedule record is present. Can apply.")
-#            if message.get("late_reason", None) is None:
-#                late_reason_code = None
-#                late_reason_tiploc = None
-#                late_reason_near = None
-#            else:
-#                late_reason_code = message["late_reason"].get("code", None)
-#                late_reason_tiploc = message["late_reason"].get("tiploc", None)
-#                late_reason_near = message["late_reason"].get("near", None)
-#
-#            self.cursor.execute(self.update_schedule_query, (
-#                message["reverse_formation"],
-#                late_reason_code,
-#                late_reason_tiploc,
-#                late_reason_near,
-#                message["rid"],
-#            ))
-#
-#            for l in message["locations"]:
-#                self.cursor.execute(self.select_location_query_execute, (
-#                    message["rid"],
-#                    l["tiploc"],
-#                    l.get("working_arrival_time", None),
-#                    #l.public_arrival_time,
-#                    l.get("working_pass_time", None),
-#                    #l.public_departure_time,
-#                    l.get("working_departure_time", None),
-#                ))
-#                if self.cursor.rowcount == 0:
-#                    print("   --- 0 Matching Schedule locations found.")
-#                    # TODO: Figure out wtf is the cause of this.
-#                    pass
-#                elif self.cursor.rowcount == 1:
-#                    #print("   +++ 1 Matching Schedule location found.")
-#                    # TODO: Calculate the time. We do this by selecting the first schedule_location
-#                    #       of the schedule this location is part of (do this outside the loop to
-#                    #       avoid spurious queries) and using that and the start_date to figure out
-#                    #       the timezone which should be applied to all times.
-#                    #
-#                    #       Next we compare the raw times from the status message and the schedule
-#                    #       location record to work out if we have gone forward or backward in time
-#                    #       and if the date has changed, as per the Darwin rules on the wiki.
-#                    #
-#                    #       Then we should be able to infer the actual UTC time and the appropriate
-#                    #       date to apply to all the forecast times, and can then save them to
-#                    #       the database.
-#                    pass
-#                else:
-#                    print("   !!! {} matching schedule locations found.".format(cursor.rowcount))
-#                    # TODO: We seem to be getting some duplicate calling points in the database,
-#                    #       with exactly the same times and tiplocs. Is this a bug in the Schedule
-#                    #       message processing code, or is this a bug in the data, or is there
-#                    #       something important in how the data works that I'm missing?
-#                    pass
-#
         self.connection.commit()
 
     def prepare_message(self, message):
@@ -192,5 +304,21 @@ class TrainStatusMessageStore(BaseStore):
                 l["raw_public_departure_time"] = parse(l["public_departure_time"]).time()
             else:
                 l["raw_public_departure_time"] = None
+
+    def determine_stuff(self, dated_schedule_time, tz, schedule_time, forecast_time):
+        delta = subtract_times(forecast_time, schedule_time)
+        if delta < -21600:
+            # Crossed Midnight into the next day.
+            d = (dated_schedule_time + timedelta(days=1)).date()
+
+        elif delta < 64800:
+            # Normal time.
+            d = dated_schedule_time.date()
+
+        else:
+            # Delayed backwards over midnight into previous day.
+            d = (dated_schedule_time + timedelta(days=-1)).date()
+
+        return tz.localize(datetime.combine(d, forecast_time)).astimezone(pytz.utc)
 
 

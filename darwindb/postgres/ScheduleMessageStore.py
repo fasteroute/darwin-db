@@ -63,29 +63,29 @@ class ScheduleMessageStore(BaseStore):
             ("platform_source", "varchar"),
             ("platform_confirmed", "boolean"),
             ("platform_number", "varchar"),
-            ("forecast_arrival_estimated_time", "time with time zone"),
-            ("forecast_arrival_working_estimated_time", "time with time zone"),
-            ("forecast_arrival_actual_time", "time with time zone"),
-            ("forecast_arrival_actual_time_reomved", "boolean"),
-            ("forecast_arrival_manual_estimate_lower_limit_minutes", "integer"),
+            ("forecast_arrival_estimated_time", "timestamp with time zone"),
+            ("forecast_arrival_working_estimated_time", "timestamp with time zone"),
+            ("forecast_arrival_actual_time", "timestamp with time zone"),
+            ("forecast_arrival_actual_time_removed", "boolean"),
+            ("forecast_arrival_manual_estimate_lower_limit", "timestamp with time zone"),
             ("forecast_arrival_manual_estimate_unknown_delay", "boolean"),
             ("forecast_arrival_unknown_delay", "boolean"),
             ("forecast_arrival_source", "varchar"),
             ("forecast_arrival_source_cis", "varchar"),
-            ("forecast_departure_estimated_time", "time with time zone"),
-            ("forecast_departure_working_estimated_time", "time with time zone"),
-            ("forecast_departure_actual_time", "time with time zone"),
-            ("forecast_departure_actual_time_reomved", "boolean"),
-            ("forecast_departure_manual_estimate_lower_limit_minutes", "integer"),
+            ("forecast_departure_estimated_time", "timestamp with time zone"),
+            ("forecast_departure_working_estimated_time", "timestamp with time zone"),
+            ("forecast_departure_actual_time", "timestamp with time zone"),
+            ("forecast_departure_actual_time_removed", "boolean"),
+            ("forecast_departure_manual_estimate_lower_limit", "timestamp with time zone"),
             ("forecast_departure_manual_estimate_unknown_delay", "boolean"),
             ("forecast_departure_unknown_delay", "boolean"),
             ("forecast_departure_source", "varchar"),
             ("forecast_departure_source_cis", "varchar"),
-            ("forecast_pass_estimated_time", "time with time zone"),
-            ("forecast_pass_working_estimated_time", "time with time zone"),
-            ("forecast_pass_actual_time", "time with time zone"),
-            ("forecast_pass_actual_time_reomved", "boolean"),
-            ("forecast_pass_manual_estimate_lower_limit_minutes", "integer"),
+            ("forecast_pass_estimated_time", "timestamp with time zone"),
+            ("forecast_pass_working_estimated_time", "timestamp with time zone"),
+            ("forecast_pass_actual_time", "timestamp with time zone"),
+            ("forecast_pass_actual_time_removed", "boolean"),
+            ("forecast_pass_manual_estimate_lower_limit", "timestamp with time zone"),
             ("forecast_pass_manual_estimate_unknown_delay", "boolean"),
             ("forecast_pass_unknown_delay", "boolean"),
             ("forecast_pass_source", "varchar"),
@@ -263,7 +263,7 @@ class ScheduleMessageStore(BaseStore):
         if this_location["raw_working_arrival_time"] is not None:
             t = this_location["raw_working_arrival_time"]
             if last_time is not None:
-                if last_time > t:
+                if last_time > add_minutes_to_time(t, this_location.get("route_delay", None)):
                     day_incrementor += 1
             d = start_date + timedelta(days=day_incrementor)
             this_location["working_arrival_time"] = tz.localize(datetime.combine(d, t)).astimezone(pytz.utc)
@@ -273,7 +273,7 @@ class ScheduleMessageStore(BaseStore):
         if this_location["raw_public_arrival_time"] is not None:
             t = this_location["raw_public_arrival_time"]
             if last_time is not None:
-                if last_time > t:
+                if last_time > add_minutes_to_time(t, this_location.get("route_delay", None)):
                     day_incrementor += 1
             d = start_date + timedelta(days=day_incrementor)
             this_location["public_arrival_time"] = tz.localize(datetime.combine(d, t)).astimezone(pytz.utc)
@@ -283,7 +283,7 @@ class ScheduleMessageStore(BaseStore):
         if this_location["raw_working_pass_time"] is not None:
             t = this_location["raw_working_pass_time"]
             if last_time is not None:
-                if last_time > t:
+                if last_time > add_minutes_to_time(t, this_location.get("route_delay", None)):
                     day_incrementor += 1
             d = start_date + timedelta(days=day_incrementor)
             this_location["working_pass_time"] = tz.localize(datetime.combine(d, t)).astimezone(pytz.utc)
@@ -293,7 +293,7 @@ class ScheduleMessageStore(BaseStore):
         if this_location["raw_public_departure_time"] is not None:
             t = this_location["raw_public_departure_time"]
             if last_time is not None:
-                if last_time > t:
+                if last_time > add_minutes_to_time(t, this_location.get("route_delay", None)):
                     day_incrementor += 1
             d = start_date + timedelta(days=day_incrementor)
             this_location["public_departure_time"] = tz.localize(datetime.combine(d, t)).astimezone(pytz.utc)
@@ -303,7 +303,7 @@ class ScheduleMessageStore(BaseStore):
         if this_location["raw_working_departure_time"] is not None:
             t = this_location["raw_working_departure_time"]
             if last_time is not None:
-                if last_time > t:
+                if last_time > add_minutes_to_time(t, this_location.get("route_delay", None)):
                     day_incrementor += 1
             d = start_date + timedelta(days=day_incrementor)
             this_location["working_departure_time"] = tz.localize(datetime.combine(d, t)).astimezone(pytz.utc)
@@ -322,5 +322,14 @@ class ScheduleMessageStore(BaseStore):
             return l["raw_working_arrival_time"]
         else:
             raise Exception()
+
+    
+def add_minutes_to_time(t, minutes):
+    if minutes is None:
+        return t
+
+    d = datetime.combine(datetime.today().date(), t)
+    d = d + timedelta(minutes=minutes)
+    return d.time()
 
 
