@@ -9,7 +9,10 @@ import time
 
 class Listener:
     def __init__(self, client):
-        self.connection = PostgresConnection("172.17.0.2", "postgres", "postgres", "mysecretpassword")
+        self.connection = PostgresConnection(host=os.environ["POSTGRES_HOST"],
+                                             dbname=os.environ["POSTGRES_DB"],
+                                             user=os.environ["POSTGRES_USER"],
+                                             password=os.environ["POSTGRES_PASS"])
         
         self.schedule_store = ScheduleMessageStore(self.connection)
         self.train_status_store = TrainStatusMessageStore(self.connection)
@@ -35,12 +38,17 @@ class Listener:
             self.train_status_store.save_train_status_message(s)
 
         # Now we have finished processing, ack the message.
-        self.client.ack(headers["ack"])
+        self.client.ack(headers)
 
 c = Client()
 l = Listener(c)
 
-c.connect(os.environ["STOMP_HOST"], 61613, "admin", "pass", "Consumer.Example.VirtualTopic.PushPortJson", l)
+c.connect(server=os.environ["STOMP_HOST"],
+          port=int(os.environ["STOMP_PORT"]),
+          user=os.environ["STOMP_USER"],
+          password=os.environ["STOMP_PASS"],
+          queue=os.environ["STOMP_QUEUE"],
+          listener=l)
 
 while True:
     time.sleep(1)

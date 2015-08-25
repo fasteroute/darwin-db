@@ -1,4 +1,4 @@
-from stomp.connect import StompConnection12
+from stomp.connect import StompConnection11
 
 import logging
 log = logging.getLogger("darwindb")
@@ -21,7 +21,7 @@ class Client:
         
         self.cb = listener
 
-        self.conn = StompConnection12([(server, port)], auto_decode=False)
+        self.conn = StompConnection11([(server, port)], auto_decode=False)
         self.conn.set_listener('', self)
         self.conn.start()
         self.conn.connect(user, password)
@@ -57,7 +57,7 @@ class Client:
         if has_method(self.cb, "on_message"):
             self.cb.on_message(headers, message)
 
-    def ack(self, message_id):
-        self.conn.ack(message_id)
+    def ack(self, headers):
+        self.conn.ack(headers["message-id"], headers["subscription"])
 
 
