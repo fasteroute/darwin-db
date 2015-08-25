@@ -39,37 +39,44 @@ class TrainStatusMessageStore(BaseStore):
                 s.table_schedule_location_name,
                 "rid=$1")
 
-        self.update_point_prepare = "PREPARE ts_update_point as UPDATE {} SET {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} WHERE {}".format(
+        self.update_point_prepare = "PREPARE ts_update_point as UPDATE {} SET {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} WHERE {}".format(
                 s.table_schedule_location_name,
                 "suppressed=$1",
-                "forecast_arrival_estimated_time=$2",
-                "forecast_arrival_working_estimated_time=$3",
-                "forecast_arrival_actual_time=$4",
-                "forecast_arrival_actual_time_removed=$5",
-                "forecast_arrival_manual_estimate_lower_limit=$6",
-                "forecast_arrival_manual_estimate_unknown_delay=$7",
-                "forecast_arrival_unknown_delay=$8",
-                "forecast_arrival_source=$9",
-                "forecast_arrival_source_cis=$10",
-                "forecast_pass_estimated_time=$11",
-                "forecast_pass_working_estimated_time=$12",
-                "forecast_pass_actual_time=$13",
-                "forecast_pass_actual_time_removed=$14",
-                "forecast_pass_manual_estimate_lower_limit=$15",
-                "forecast_pass_manual_estimate_unknown_delay=$16",
-                "forecast_pass_unknown_delay=$17",
-                "forecast_pass_source=$18",
-                "forecast_pass_source_cis=$19",
-                "forecast_departure_estimated_time=$20",
-                "forecast_departure_working_estimated_time=$21",
-                "forecast_departure_actual_time=$22",
-                "forecast_departure_actual_time_removed=$23",
-                "forecast_departure_manual_estimate_lower_limit=$24",
-                "forecast_departure_manual_estimate_unknown_delay=$25",
-                "forecast_departure_unknown_delay=$26",
-                "forecast_departure_source=$27",
-                "forecast_departure_source_cis=$28",
-                "id=$29")
+                "length=$2",
+                "detach_front=$3",
+                "platform_suppressed=$4",
+                "platform_suppressed_by_cis=$5",
+                "platform_source=$6",
+                "platform_confirmed=$7",
+                "platform_number=$8",
+                "forecast_arrival_estimated_time=$9",
+                "forecast_arrival_working_estimated_time=$10",
+                "forecast_arrival_actual_time=$11",
+                "forecast_arrival_actual_time_removed=$12",
+                "forecast_arrival_manual_estimate_lower_limit=$13",
+                "forecast_arrival_manual_estimate_unknown_delay=$14",
+                "forecast_arrival_unknown_delay=$15",
+                "forecast_arrival_source=$16",
+                "forecast_arrival_source_cis=$17",
+                "forecast_pass_estimated_time=$18",
+                "forecast_pass_working_estimated_time=$19",
+                "forecast_pass_actual_time=$20",
+                "forecast_pass_actual_time_removed=$21",
+                "forecast_pass_manual_estimate_lower_limit=$22",
+                "forecast_pass_manual_estimate_unknown_delay=$23",
+                "forecast_pass_unknown_delay=$24",
+                "forecast_pass_source=$25",
+                "forecast_pass_source_cis=$26",
+                "forecast_departure_estimated_time=$27",
+                "forecast_departure_working_estimated_time=$28",
+                "forecast_departure_actual_time=$29",
+                "forecast_departure_actual_time_removed=$30",
+                "forecast_departure_manual_estimate_lower_limit=$31",
+                "forecast_departure_manual_estimate_unknown_delay=$32",
+                "forecast_departure_unknown_delay=$33",
+                "forecast_departure_source=$34",
+                "forecast_departure_source_cis=$35",
+                "id=$36")
 
         self.select_tz_prepare = "PREPARE ts_select_tz as SELECT {} from {} WHERE {}".format(
                 "timezone",
@@ -235,9 +242,29 @@ class TrainStatusMessageStore(BaseStore):
                             departure_source = m["departure"].get("source", None)
                             departure_source_cis = m["departure"].get("source_cis", None)
 
+                        
+                        if m.get("platform", None) is not None:
+                            platform_suppressed = m["platform"].get("suppressed", None)
+                            platform_suppressed_by_cis = m["platform"].get("suppressed_by_cis", None)
+                            platform_source = m["platform"].get("source", None)
+                            platform_confirmed = m["platform"].get("confirmed", None)
+                            platform_number = m["platform"].get("number", None)
+                        else:
+                            platform_suppressed = None
+                            platform_suppressed_by_cis = None
+                            platform_source = None
+                            platform_confirmed = None
+                            platform_number = None
 
-                        self.cursor.execute("EXECUTE ts_update_point (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (
-                            None if "suppressed" not in m else m["suppressed"],
+                        self.cursor.execute("EXECUTE ts_update_point (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (
+                            m.get("suppressed", None),
+                            m.get("length", None),
+                            m.get("detach_front", None),
+                            platform_suppressed,
+                            platform_suppressed_by_cis,
+                            platform_source,
+                            platform_confirmed,
+                            platform_number,
                             arrival_estimated_time,
                             arrival_working_estimated_time,
                             arrival_actual_time,
