@@ -78,12 +78,16 @@ class TrainStatusMessageStore(BaseStore):
                 "forecast_departure_source_cis=$35",
                 "id=$36")
 
-        self.select_tz_prepare = "PREPARE ts_select_tz as SELECT {} from {} WHERE {}".format(
-                "timezone",
+        self.update_schedule_select_tz_prepare = "PREPARE ts_update_schedule_select_tz as UPDATE {} SET {}, {}, {}, {} WHERE {} RETURNING {}".format(
                 s.table_schedule_name,
-                "rid=$1")
+                "reverse_formation=$1",
+                "late_reason_code=$2",
+                "late_reason_tiploc=$3",
+                "late_reason_near=$4",
+                "rid=$5",
+                "timezone",)
 
-        self.select_tz_execute = "EXECUTE ts_select_tz (%s)"
+        self.update_schedule_select_tz_execute = "EXECUTE ts_update_schedule_select_tz (%s, %s, %s, %s, %s)"
 
         self.cursor = None
 
@@ -98,11 +102,9 @@ class TrainStatusMessageStore(BaseStore):
         # Check the train concerned is in the database.
         if self.cursor is None:
             self.cursor = self.connection.cursor()
-#            self.cursor.execute("PREPARE get_schedule_by_rid_count as SELECT rid FROM schedule WHERE rid=$1")
-#            self.cursor.execute(self.select_location_query_prepare)
             self.cursor.execute(self.select_points_prepare)
             self.cursor.execute(self.update_point_prepare)
-            self.cursor.execute(self.select_tz_prepare)
+            self.cursor.execute(self.update_schedule_select_tz_prepare)
 
         self.cursor.execute("EXECUTE ts_select_points (%s)", (message["rid"],))
 
@@ -115,7 +117,22 @@ class TrainStatusMessageStore(BaseStore):
             rows = self.cursor.fetchall()
 
             # Get the timezone to apply the schedule to.
-            self.cursor.execute(self.select_tz_execute, (message["rid"],))
+            if message.get("late_reason", None) is not None:
+                late_reason_code = message["late_reason"].get("code", None)
+                late_reason_tiploc = message["late_reason"].get("tiploc", None)
+                late_reason_near = message["late_reason"].get("near", None)
+            else:
+                late_reason_code = None
+                late_reason_tiploc = None
+                late_reason_near = None
+
+            self.cursor.execute(self.update_schedule_select_tz_execute, (
+                message.get("reverse_formation", None),
+                late_reason_code,
+                late_reason_tiploc,
+                late_reason_near,
+                message["rid"],
+            ))
             if self.cursor.rowcount != 1:
                 print("ERROR Row Count not equal to one when getting timezone. This should be impossible.")
                 return
