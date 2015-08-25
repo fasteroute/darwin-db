@@ -1,5 +1,6 @@
 from darwindb.postgres.BaseStore import BaseStore
 from darwindb.postgres.ScheduleMessageStore import ScheduleMessageStore
+from darwindb.utils import subtract_times, apply_date_and_tz_to_time
 
 from datetime import datetime, date, time, timedelta
 from dateutil.parser import parse
@@ -7,10 +8,6 @@ from dateutil.parser import parse
 from collections import OrderedDict
 
 import pytz
-
-def subtract_times(a, b):
-    delta = datetime.combine(date.today(), a) - datetime.combine(date.today(), b)
-    return (delta.days*24*60*60)+delta.seconds
 
 class TrainStatusMessageStore(BaseStore):
     
@@ -134,25 +131,25 @@ class TrainStatusMessageStore(BaseStore):
                         arrival_working_estimated_time = None
                         if r[7] is not None:
                             if m["arrival"] is not None and m["arrival"].get("working_estimated_time", None) is not None:
-                                arrival_working_estimated_time = self.determine_stuff(r[2], tz, r[7], parse(m["arrival"]["working_estimated_time"]).time())
+                                arrival_working_estimated_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["working_estimated_time"]).time())
                         
                         arrival_estimated_time = None
                         if r[8] is not None:
                             if m["arrival"] is not None and m["arrival"].get("estimated_time", None) is not None:
-                                arrival_estimated_time = self.determine_stuff(r[3], tz, r[8], parse(m["arrival"]["estimated_time"]).time())
+                                arrival_estimated_time = apply_date_and_tz_to_time(r[3], tz, r[8], parse(m["arrival"]["estimated_time"]).time())
                         elif r[7] is not None:
                             if m["arrival"] is not None and m["arrival"].get("estimated_time", None) is not None:
-                                arrival_estimated_time = self.determine_stuff(r[2], tz, r[7], parse(m["arrival"]["estimated_time"]).time())
+                                arrival_estimated_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["estimated_time"]).time())
                         
                         arrival_actual_time = None
                         if r[7] is not None:
                             if m["arrival"] is not None and m["arrival"].get("actual_time", None) is not None:
-                                arrival_actual_time = self.determine_stuff(r[2], tz, r[7], parse(m["arrival"]["actual_time"]).time())
+                                arrival_actual_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["actual_time"]).time())
 
                         arrival_manual_estimate_lower_limit = None
                         if r[7] is not None:
                             if m["arrival"] is not None and m["arrival"].get("manual_estimate_lower_limit_minutes", None) is not None:
-                                arrival_manual_estimate_lower_limit = self.determine_stuff(r[2], tz, r[7], parse(m["arrival"]["manual_estimate_lower_limit_minutes"]).time())
+                                arrival_manual_estimate_lower_limit = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["manual_estimate_lower_limit_minutes"]).time())
 
                         arrival_actual_time_removed = None
                         arrival_manual_estimate_unknown_delay = None
@@ -171,22 +168,22 @@ class TrainStatusMessageStore(BaseStore):
                         pass_working_estimated_time = None
                         if r[9] is not None:
                             if m["pass"] is not None and m["pass"].get("working_estimated_time", None) is not None:
-                                pass_working_estimated_time = self.determine_stuff(r[4], tz, r[9], parse(m["pass"]["working_estimated_time"]).time())
+                                pass_working_estimated_time = apply_date_and_tz_to_time(r[4], tz, r[9], parse(m["pass"]["working_estimated_time"]).time())
                         
                         pass_estimated_time = None
                         if r[9] is not None:
                             if m["pass"] is not None and m["pass"].get("estimated_time", None) is not None:
-                                pass_estimated_time = self.determine_stuff(r[4], tz, r[9], parse(m["pass"]["estimated_time"]).time())
+                                pass_estimated_time = apply_date_and_tz_to_time(r[4], tz, r[9], parse(m["pass"]["estimated_time"]).time())
                         
                         pass_actual_time = None
                         if r[9] is not None:
                             if m["pass"] is not None and m["pass"].get("actual_time", None) is not None:
-                                pass_actual_time = self.determine_stuff(r[4], tz, r[9], parse(m["pass"]["actual_time"]).time())
+                                pass_actual_time = apply_date_and_tz_to_time(r[4], tz, r[9], parse(m["pass"]["actual_time"]).time())
 
                         pass_manual_estimate_lower_limit = None
                         if r[9] is not None:
                             if m["pass"] is not None and m["pass"].get("manual_estimate_lower_limit_minutes", None) is not None:
-                                pass_manual_estimate_lower_limit = self.determine_stuff(r[4], tz, r[9], parse(m["pass"]["manual_estimate_lower_limit_minutes"]).time())
+                                pass_manual_estimate_lower_limit = apply_date_and_tz_to_time(r[4], tz, r[9], parse(m["pass"]["manual_estimate_lower_limit_minutes"]).time())
 
                         pass_actual_time_removed = None
                         pass_manual_estimate_unknown_delay = None
@@ -205,25 +202,25 @@ class TrainStatusMessageStore(BaseStore):
                         departure_working_estimated_time = None
                         if r[7] is not None:
                             if m.get("departure", None) is not None and m["departure"].get("working_estimated_time", None) is not None:
-                                departure_working_estimated_time = self.determine_stuff(r[2], tz, r[7], parse(m["departure"]["working_estimated_time"]).time())
+                                departure_working_estimated_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["departure"]["working_estimated_time"]).time())
                         
                         departure_estimated_time = None
                         if r[8] is not None:
                             if m.get("departure", None) is not None and m["departure"].get("estimated_time", None) is not None:
-                                departure_estimated_time = self.determine_stuff(r[3], tz, r[8], parse(m["departure"]["estimated_time"]).time())
+                                departure_estimated_time = apply_date_and_tz_to_time(r[3], tz, r[8], parse(m["departure"]["estimated_time"]).time())
                         elif r[7] is not None:
                             if m.get("departure", None) is not None and m["departure"].get("estimated_time", None) is not None:
-                                departure_estimated_time = self.determine_stuff(r[2], tz, r[7], parse(m["departure"]["estimated_time"]).time())
+                                departure_estimated_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["departure"]["estimated_time"]).time())
                         
                         departure_actual_time = None
                         if r[7] is not None:
                             if m.get("departure", None) is not None and m["departure"].get("actual_time", None) is not None:
-                                departure_actual_time = self.determine_stuff(r[2], tz, r[7], parse(m["departure"]["actual_time"]).time())
+                                departure_actual_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["departure"]["actual_time"]).time())
 
                         departure_manual_estimate_lower_limit = None
                         if r[7] is not None:
                             if m.get("departure", None) is not None and m["departure"].get("manual_estimate_lower_limit_minutes", None) is not None:
-                                departure_manual_estimate_lower_limit = self.determine_stuff(r[2], tz, r[7], parse(m["departure"]["manual_estimate_lower_limit_minutes"]).time())
+                                departure_manual_estimate_lower_limit = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["departure"]["manual_estimate_lower_limit_minutes"]).time())
 
                         departure_actual_time_removed = None
                         departure_manual_estimate_unknown_delay = None
@@ -304,21 +301,5 @@ class TrainStatusMessageStore(BaseStore):
                 l["raw_public_departure_time"] = parse(l["public_departure_time"]).time()
             else:
                 l["raw_public_departure_time"] = None
-
-    def determine_stuff(self, dated_schedule_time, tz, schedule_time, forecast_time):
-        delta = subtract_times(forecast_time, schedule_time)
-        if delta < -21600:
-            # Crossed Midnight into the next day.
-            d = (dated_schedule_time + timedelta(days=1)).date()
-
-        elif delta < 64800:
-            # Normal time.
-            d = dated_schedule_time.date()
-
-        else:
-            # Delayed backwards over midnight into previous day.
-            d = (dated_schedule_time + timedelta(days=-1)).date()
-
-        return tz.localize(datetime.combine(d, forecast_time)).astimezone(pytz.utc)
 
 

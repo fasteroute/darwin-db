@@ -1,5 +1,5 @@
 from darwindb.postgres.BaseStore import BaseStore
-from darwindb.utils import timezone_for_date_and_time
+from darwindb.utils import timezone_for_date_and_time, apply_date_and_tz_to_time, add_minutes_to_time
 
 from collections import OrderedDict
 
@@ -233,12 +233,22 @@ class ScheduleMessageStore(BaseStore):
             else:
                 l["raw_public_departure_time"] = None
 
-        # Get the first time.
+            l["working_arrival_time"] = None
+            l["public_arrival_time"] = None
+            l["working_pass_time"] = None
+            l["public_departure_time"] = None
+            l["working_departure_time"] = None
+
+        # Get the first time to use to figure out the timezone of the schedule.
         first_location = message["locations"][0]
         if first_location.get("raw_working_arrival_time", None) is not None:
             t = first_location["raw_working_arrival_time"]
+        elif first_location.get("raw_public_arrival_time", None) is not None:
+            t = first_location["raw_public_arrival_time"]
         elif first_location.get("raw_working_pass_time", None) is not None:
             t = first_location["raw_working_pass_time"]
+        elif first_location.get("raw_public_departure_time", None) is not None:
+            t = first_location["raw_public_departure_time"]
         elif first_location.get("raw_working_departure_time", None) is not None:
             t = first_location["raw_working_departure_time"]
         else:
@@ -246,90 +256,96 @@ class ScheduleMessageStore(BaseStore):
 
         message["timezone"] = timezone_for_date_and_time(message["start_date"], t)
 
-        day_incrementor = 0
-        o = None
-        for p in message["locations"]:
-            day_incrementor = self.build_times(day_incrementor, o, p, message["start_date"], message["timezone"])
-            o = p
+        previous_location = None
+        for this_location in message["locations"]:
+            self.build_times(previous_location, this_location, message["start_date"], message["timezone"])
+            previous_location = this_location
 
-    def build_times(self, day_incrementor, last_location, this_location, start_date, tz):
-
-        # Construct all the date/time objects iteratively, checking for back-in-time movement of
-        # any of them.
-        last_time = None
-        if last_location is not None:
-            last_time = self.get_last_time(last_location)
+    def build_times(self, previous_location, this_location, start_date, tz):
 
         if this_location["raw_working_arrival_time"] is not None:
-            t = this_location["raw_working_arrival_time"]
-            if last_time is not None:
-                if last_time > add_minutes_to_time(t, this_location.get("route_delay", None)):
-                    day_incrementor += 1
-            d = start_date + timedelta(days=day_incrementor)
-            this_location["working_arrival_time"] = tz.localize(datetime.combine(d, t)).astimezone(pytz.utc)
+            this_time = this_location["raw_working_arrival_time"]
+            previous_time = self.get_last_time(previous_location, this_location, start_date, tz)
+            this_location["working_arrival_time"] = \
+                    apply_date_and_tz_to_time(previous_time, tz, previous_time.time(), this_time)
         else:
             this_location["working_arrival_time"] = None
 
         if this_location["raw_public_arrival_time"] is not None:
-            t = this_location["raw_public_arrival_time"]
-            if last_time is not None:
-                if last_time > add_minutes_to_time(t, this_location.get("route_delay", None)):
-                    day_incrementor += 1
-            d = start_date + timedelta(days=day_incrementor)
-            this_location["public_arrival_time"] = tz.localize(datetime.combine(d, t)).astimezone(pytz.utc)
+            this_time = this_location["raw_public_arrival_time"]
+            previous_time = self.get_last_time(previous_location, this_location, start_date, tz)
+            this_location["public_arrival_time"] = \
+                    apply_date_and_tz_to_time(previous_time, tz, previous_time.time(), this_time)
         else:
             this_location["public_arrival_time"] = None
 
         if this_location["raw_working_pass_time"] is not None:
-            t = this_location["raw_working_pass_time"]
-            if last_time is not None:
-                if last_time > add_minutes_to_time(t, this_location.get("route_delay", None)):
-                    day_incrementor += 1
-            d = start_date + timedelta(days=day_incrementor)
-            this_location["working_pass_time"] = tz.localize(datetime.combine(d, t)).astimezone(pytz.utc)
+            this_time = this_location["raw_working_pass_time"]
+            previous_time = self.get_last_time(previous_location, this_location, start_date, tz)
+            this_location["working_pass_time"] = \
+                    apply_date_and_tz_to_time(previous_time, tz, previous_time.time(), this_time)
         else:
             this_location["working_pass_time"] = None
 
         if this_location["raw_public_departure_time"] is not None:
-            t = this_location["raw_public_departure_time"]
-            if last_time is not None:
-                if last_time > add_minutes_to_time(t, this_location.get("route_delay", None)):
-                    day_incrementor += 1
-            d = start_date + timedelta(days=day_incrementor)
-            this_location["public_departure_time"] = tz.localize(datetime.combine(d, t)).astimezone(pytz.utc)
+            this_time = this_location["raw_public_departure_time"]
+            previous_time = self.get_last_time(previous_location, this_location, start_date, tz)
+            this_location["public_departure_time"] = \
+                    apply_date_and_tz_to_time(previous_time, tz, previous_time.time(), this_time)
         else:
             this_location["public_departure_time"] = None
 
         if this_location["raw_working_departure_time"] is not None:
-            t = this_location["raw_working_departure_time"]
-            if last_time is not None:
-                if last_time > add_minutes_to_time(t, this_location.get("route_delay", None)):
-                    day_incrementor += 1
-            d = start_date + timedelta(days=day_incrementor)
-            this_location["working_departure_time"] = tz.localize(datetime.combine(d, t)).astimezone(pytz.utc)
+            this_time = this_location["raw_working_departure_time"]
+            previous_time = self.get_last_time(previous_location, this_location, start_date, tz)
+            this_location["working_departure_time"] = \
+                    apply_date_and_tz_to_time(previous_time, tz, previous_time.time(), this_time)
         else:
             this_location["working_departure_time"] = None
 
-        # Return the new day_incrementor value.
-        return day_incrementor
+    def get_last_time(self, previous_location, this_location, start_date, tz):
+        if this_location["working_departure_time"] is not None:
+            return this_location["working_departure_time"]
+        if this_location["public_departure_time"] is not None:
+            return this_location["public_departure_time"]
+        if this_location["working_pass_time"] is not None:
+            return this_location["working_pass_time"]
+        if this_location["public_arrival_time"] is not None:
+            return this_location["public_arrival_time"]
+        if this_location["working_arrival_time"] is not None:
+            return this_location["working_arrival_time"]
 
-    def get_last_time(self, l):
-        if l["raw_working_departure_time"] is not None:
-            return l["raw_working_departure_time"]
-        elif l["raw_working_pass_time"] is not None:
-            return l["raw_working_pass_time"]
-        elif l["raw_working_arrival_time"] is not None:
-            return l["raw_working_arrival_time"]
-        else:
-            raise Exception()
+        if previous_location is None:
+            t = None
+            if this_location["raw_working_arrival_time"] is not None:
+                t = this_location["raw_working_arrival_time"]
+            if this_location["raw_public_arrival_time"] is not None:
+                t = this_location["raw_public_arrival_time"]
+            if this_location["raw_working_pass_time"] is not None:
+                t = this_location["raw_working_pass_time"]
+            if this_location["raw_public_departure_time"] is not None:
+                t = this_location["raw_public_departure_time"]
+            if this_location["raw_working_departure_time"] is not None:
+                t = this_location["raw_working_departure_time"]
 
-    
-def add_minutes_to_time(t, minutes):
-    if minutes is None:
-        return t
+            if t is None:
+                raise Exception("T is none and previous_location is None. WTF?")
 
-    d = datetime.combine(datetime.today().date(), t)
-    d = d + timedelta(minutes=minutes)
-    return d.time()
+            t = add_minutes_to_time(t, this_location.get("route_delay", None))
+
+            return tz.localize(datetime.combine(start_date, t)).astimezone(pytz.utc)
+        
+        if previous_location["working_departure_time"] is not None:
+            return previous_location["working_departure_time"]
+        if previous_location["public_departure_time"] is not None:
+            return previous_location["public_departure_time"]
+        if previous_location["working_pass_time"] is not None:
+            return previous_location["working_pass_time"]
+        if previous_location["public_arrival_time"] is not None:
+            return previous_location["public_arrival_time"]
+        if previous_location["working_arrival_time"] is not None:
+            return this_location["working_arrival_time"]
+
+        raise Exception("Couldn't figure out the last time.")
 
 
