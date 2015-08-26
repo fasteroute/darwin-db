@@ -1,7 +1,7 @@
 from darwindb import Client
 
 from darwindb.postgres import Connection as PostgresConnection
-from darwindb.postgres import ScheduleMessageStore, TrainStatusMessageStore
+from darwindb.postgres import AssociationMessageStore, ScheduleMessageStore, TrainStatusMessageStore
 
 import json
 import os
@@ -15,6 +15,7 @@ class Listener:
                                              password=os.environ["POSTGRES_PASS"])
         
         self.schedule_store = ScheduleMessageStore(self.connection)
+        self.association_store = AssociationMessageStore(self.connection)
         self.train_status_store = TrainStatusMessageStore(self.connection)
 
         self.client = client
@@ -22,6 +23,7 @@ class Listener:
     def on_connected(self, headers, body):
         self.connection.connect()
         self.schedule_store.create_tables()
+        self.association_store.create_tables()
         self.train_status_store.create_tables()
     
     def on_message(self, headers, message):
@@ -33,6 +35,9 @@ class Listener:
         for s in m["schedule_messages"]:
             #print ("    "+s["rid"])
             self.schedule_store.save_schedule_message(s)
+
+        for s in m["association_messages"]:
+            self.association_store.save_message(s)
 
         for s in m["train_status_messages"]:
             self.train_status_store.save_train_status_message(s)
