@@ -109,9 +109,9 @@ class TrainStatusMessageStore(BaseStore):
         self.cursor.execute("EXECUTE ts_select_points (%s)", (message["rid"],))
 
         if self.cursor.rowcount == 0:
-            print("--- Cannot apply because we don't have the relevant schedule record yet.")
+            print("--- Cannot apply TS because we don't have the relevant schedule record yet. RID: {}".format(message["rid"]))
         else:
-            print("+++ Schedule record is present. Can apply.")
+            #print("+++ Schedule record is present. Can apply.")
 
             # Get the rows from that query.
             rows = self.cursor.fetchall()
@@ -313,7 +313,14 @@ class TrainStatusMessageStore(BaseStore):
                         ))
                         break
                 if not found:
-                    print("    --- Did not find matching row.")
+                    print("--- Did not find matching schedule_location row for TS {} at {}".format(message["rid"], m["tiploc"]))
+                    print("        Times: {} {} {} {} {}".format(
+                        m.get("working_arrival_time", None),
+                        m.get("public_arrival_time", None),
+                        m.get("working_pass_time", None),
+                        m.get("public_departure_time", None),
+                        m.get("working_departure_time", None)
+                    ))
                     pass
             
         self.connection.commit()

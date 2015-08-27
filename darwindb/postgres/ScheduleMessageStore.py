@@ -197,8 +197,33 @@ class ScheduleMessageStore(BaseStore):
                 message["cancellation_reason"].get("near", None) if message.get("cancellation_reason", None) is not None else None,
                 message["timezone"].zone,
             ))
+            i = 0
+            for p in message["locations"]:
+                cursor.execute(self.insert_schedule_location_query, (
+                    message["rid"],
+                    p["location_type"],
+                    i,
+                    p.get("tiploc", None),
+                    p.get("activity_codes", None),
+                    p.get("planned_activity_codes", None),
+                    p.get("cancelled", None),
+                    p.get("false_tiploc", None),
+                    p.get("route_delay", None),
+                    p.get("working_arrival_time", None),
+                    p.get("public_arrival_time", None),
+                    p.get("working_pass_time", None),
+                    p.get("public_departure_time", None),
+                    p.get("working_departure_time", None),
+                    p.get("raw_working_arrival_time", None),
+                    p.get("raw_public_arrival_time", None),
+                    p.get("raw_working_pass_time", None),
+                    p.get("raw_public_departure_time", None),
+                    p.get("raw_working_departure_time", None),
+                ))
+                i += 1
         else:
-           cursor.execute(self.update_schedule_query, (
+            print("+++ Updating Schedule {}".format(message["rid"]))
+            cursor.execute(self.update_schedule_query, (
                 message["uid"],
                 message["headcode"],
                 message["start_date"],
@@ -215,33 +240,108 @@ class ScheduleMessageStore(BaseStore):
                 message["timezone"].zone,
                 message["rid"],
             ))
-           # FIXME: Save forecast components before deleting...
-           cursor.execute("DELETE from {} WHERE rid=%s".format(self.table_schedule_location_name), (message["rid"],));
-        i = 0
-        for p in message["locations"]:
-            cursor.execute(self.insert_schedule_location_query, (
-                message["rid"],
-                p["location_type"],
-                i,
-                p.get("tiploc", None),
-                p.get("activity_codes", None),
-                p.get("planned_activity_codes", None),
-                p.get("cancelled", None),
-                p.get("false_tiploc", None),
-                p.get("route_delay", None),
-                p.get("working_arrival_time", None),
-                p.get("public_arrival_time", None),
-                p.get("working_pass_time", None),
-                p.get("public_departure_time", None),
-                p.get("working_departure_time", None),
-                p.get("raw_working_arrival_time", None),
-                p.get("raw_public_arrival_time", None),
-                p.get("raw_working_pass_time", None),
-                p.get("raw_public_departure_time", None),
-                p.get("raw_working_departure_time", None),
-            ))
-            i += 1
-        
+            cursor.execute("SELECT * from {} WHERE rid=%s".format(self.table_schedule_location_name), (message["rid"],));
+            rows = cursor.fetchall()
+            #cursor.execute("DELETE from {} WHERE rid=%s".format(self.table_schedule_location_name), (message["rid"],));
+            # Loop through each position in the new list of locations.
+            updated_rows = []
+            position = -1
+            for i, p in enumerate(message["locations"]):
+                position += 1
+                # Loop through the existing locations.
+                last_j = None
+                for j, r in enumerate(rows):
+                    # Continue if we don't have a match.
+                    if r[4] != p["tiploc"]:
+                        continue
+                    if r[10] != p["working_arrival_time"]:
+                        continue
+                    if r[12] != p["working_pass_time"]:
+                        continue
+                    if r[14] != p["working_departure_time"]:
+                        continue
+
+                    # Looks like we do have a match. Update the database, mark this row as updated
+                    # and move on to the next location.
+                    cursor.execute("UPDATE {} SET {} WHERE {}".format(
+                        self.table_schedule_location_name,
+                        "type=%s, "+
+                        "position=%s, "+
+                        "activity_codes=%s, "+
+                        "planned_activity_codes=%s, "+
+                        "cancelled=%s, "+
+                        "false_tiploc=%s, "+
+                        "working_arrival_time=%s, "+
+                        "public_arrival_time=%s, "+
+                        "working_pass_time=%s, "+
+                        "public_departure_time=%s, "+
+                        "working_departure_time=%s, "+
+                        "raw_working_arrival_time=%s, "+
+                        "raw_public_arrival_time=%s, "+
+                        "raw_working_pass_time=%s, "+
+                        "raw_public_departure_time=%s, "+
+                        "raw_working_departure_time=%s",
+                        "id=%s"),
+                        (   p["location_type"],
+                            position,
+                            p.get("activity_codes", None),
+                            p.get("planned_activity_codes", None),
+                            p.get("cancelled", None),
+                            p.get("false_tiploc", None),
+                            p.get("working_arrival_time", None),
+                            p.get("public_arrival_time", None),
+                            p.get("working_pass_time", None),
+                            p.get("public_departure_time", None),
+                            p.get("working_departure_time", None),
+                            p.get("raw_working_arrival_time", None),
+                            p.get("raw_public_arrival_time", None),
+                            p.get("raw_working_pass_time", None),
+                            p.get("raw_public_departure_time", None),
+                            p.get("raw_working_departure_time", None),
+                            r[0]
+                        )
+                    )
+
+                    last_j = j
+                    break
+                # Check if we updated a row, or if instead we need to insert a new one.
+                if last_j is None:
+                    # Need to insert a new one.
+                    print("   +++ Running INSERT on Schedule_Location")
+                    cursor.execute(self.insert_schedule_location_query, (
+                        message["rid"],
+                        p["location_type"],
+                        position,
+                        p.get("tiploc", None),
+                        p.get("activity_codes", None),
+                        p.get("planned_activity_codes", None),
+                        p.get("cancelled", None),
+                        p.get("false_tiploc", None),
+                        p.get("route_delay", None),
+                        p.get("working_arrival_time", None),
+                        p.get("public_arrival_time", None),
+                        p.get("working_pass_time", None),
+                        p.get("public_departure_time", None),
+                        p.get("working_departure_time", None),
+                        p.get("raw_working_arrival_time", None),
+                        p.get("raw_public_arrival_time", None),
+                        p.get("raw_working_pass_time", None),
+                        p.get("raw_public_departure_time", None),
+                        p.get("raw_working_departure_time", None),
+                    ))
+             
+                else:
+                    # We updated one successfully.
+                    # Delete from the list of rows the one that we've already updated.
+                    del rows[last_j]
+
+            # OK, so now we've updated all the rows we can, and inserted all the new ones, we need
+            # to go through all the rows that are left over and delete them.
+            for r in rows:
+                print("!!! Deleting spurious schedule_location with id {}, rid {}, tiploc {}".format(r[0], r[1], r[4]))
+                cursor.execute("DELETE from {} where id=%s".format(self.table_schedule_location_name), (r[0],))
+
+       
     @Cursor
     @Commit
     def save_deactivated_message(self, message, cursor):

@@ -84,7 +84,7 @@ class AssociationMessageStore(BaseStore):
         )
 
         if self.cursor.rowcount == 0:
-            print("+++ Inserting new Association")
+            #print("+++ Inserting new Association")
             self.cursor.execute(self.execute_insert_assoc_query, (
                 message["tiploc"],
                 message["category"],
@@ -105,7 +105,7 @@ class AssociationMessageStore(BaseStore):
             ))
 
         else:
-            print("%%% Updating existing Association")
+            #print("%%% Updating existing Association")
             rows = self.cursor.fetchall()
             aid = rows[0][0]
             self.cursor.execute(self.execute_update_assoc_query, (
