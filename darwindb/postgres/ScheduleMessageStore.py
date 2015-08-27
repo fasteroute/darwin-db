@@ -8,6 +8,34 @@ from dateutil.parser import parse
 
 import pytz
 
+""" Injects a database cursor into the kwargs of the method call.
+
+The cursor is initialised as a member of the Object, and it's queries are
+prepared before the decorated method is actually called.
+"""
+def Cursor(f):
+    def wrapper(*args, **kwargs):
+        self = args[0]
+        if not hasattr(self, '_cursor') or self._cursor is None:
+            self._cursor = self.connection.cursor()
+            self.prepare_queries(self._cursor)
+        kwargs["cursor"] = self._cursor
+        return f(*args, **kwargs)
+    return wrapper
+
+""" Commits current transaction to the database once the decorated method returns.
+
+This decorator uses the object's database connection to commit the transaction
+after the decorated method has been completed.
+"""
+def Commit(f):
+    def wrapper(*args, **kwargs):
+        self = args[0]
+        r = f(*args, **kwargs)
+        self.connection.commit()
+        return r
+    return wrapper
+
 class ScheduleMessageStore(BaseStore):
 
     table_schedule_name = "schedule"
@@ -110,8 +138,16 @@ class ScheduleMessageStore(BaseStore):
                 ", ".join(["{}=%s".format(k) for k, v in list(self.table_schedule_fields.items())[1:15]]),
                 "rid=%s")
 
-        self.cursor = None
+        self.prepare_deactivate_update_query = "PREPARE de_update AS UPDATE {} SET {} WHERE {}".format(
+                self.table_schedule_name,
+                "active=false",
+                "rid=$1"
+        )
 
+        self.execute_deactivate_update_query = "EXECUTE de_update (%s)"
+
+    # Note that this method deliberately doesn't use the @Cursor and @Commit decorators as they rely
+    # on the tables already being created for them to work properly.
     def create_tables(self):
         cursor = self.connection.cursor()
         
@@ -125,24 +161,26 @@ class ScheduleMessageStore(BaseStore):
         cursor.execute(schedule_locations_query)
         
         self.connection.commit()
-        
         cursor.close()
 
-    def save_schedule_message(self, message):
-        if self.cursor is None:
-            self.cursor = self.connection.cursor()
+    @Commit
+    def prepare_queries(self, cursor):
+        cursor.execute(self.prepare_deactivate_update_query)
 
+    @Cursor
+    @Commit
+    def save_schedule_message(self, message, cursor):
         # Calculate the date-times on the schedule message.
         self.build_sanitised_times(message)
 
         # Check if the schedule message is already found with that RTTI ID
-        self.cursor.execute("SELECT rid FROM schedule WHERE rid=%s", (message["rid"],));
+        cursor.execute("SELECT rid FROM schedule WHERE rid=%s", (message["rid"],));
 
         #print("*** Saving Schedule Message.")
 
         # Check if this is a new Schedule.
-        if self.cursor.rowcount == 0:
-            self.cursor.execute(self.insert_schedule_query, (
+        if cursor.rowcount == 0:
+            cursor.execute(self.insert_schedule_query, (
                 message["rid"],
                 message["uid"],
                 message["headcode"],
@@ -160,7 +198,7 @@ class ScheduleMessageStore(BaseStore):
                 message["timezone"].zone,
             ))
         else:
-           self.cursor.execute(self.update_schedule_query, (
+           cursor.execute(self.update_schedule_query, (
                 message["uid"],
                 message["headcode"],
                 message["start_date"],
@@ -178,10 +216,10 @@ class ScheduleMessageStore(BaseStore):
                 message["rid"],
             ))
            # FIXME: Save forecast components before deleting...
-           self.cursor.execute("DELETE from {} WHERE rid=%s".format(self.table_schedule_location_name), (message["rid"],));
+           cursor.execute("DELETE from {} WHERE rid=%s".format(self.table_schedule_location_name), (message["rid"],));
         i = 0
         for p in message["locations"]:
-            self.cursor.execute(self.insert_schedule_location_query, (
+            cursor.execute(self.insert_schedule_location_query, (
                 message["rid"],
                 p["location_type"],
                 i,
@@ -204,7 +242,15 @@ class ScheduleMessageStore(BaseStore):
             ))
             i += 1
         
-        self.connection.commit()
+    @Cursor
+    @Commit
+    def save_deactivated_message(self, message, cursor):
+        rid = message["rid"]
+
+        cursor.execute(self.execute_deactivate_update_query, (rid,));
+
+        if cursor.rowcount != 1:
+            print("!!! Could not find a matching schedule to deactivate for RID: {}".format(rid))
 
     def build_sanitised_times(self, message):
         # Convert the start date to a date.

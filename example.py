@@ -39,6 +39,9 @@ class Listener:
         for s in m["association_messages"]:
             self.association_store.save_message(s)
 
+        for d in m["deactivated_messages"]:
+            self.schedule_store.save_deactivated_message(d)
+
         for s in m["train_status_messages"]:
             self.train_status_store.save_train_status_message(s)
 
