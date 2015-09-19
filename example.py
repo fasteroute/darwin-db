@@ -1,7 +1,6 @@
 from darwindb import Client
 
-from darwindb.postgres import Connection as PostgresConnection
-from darwindb.postgres import AssociationMessageStore, ScheduleMessageStore, TrainStatusMessageStore
+from darwindb.stores import PostgresConnection, PostgresStore
 
 import json
 import os
@@ -9,41 +8,38 @@ import time
 
 class Listener:
     def __init__(self, client):
+        print("Setting up listener")
         self.connection = PostgresConnection(host=os.environ["POSTGRES_HOST"],
                                              dbname=os.environ["POSTGRES_DB"],
                                              user=os.environ["POSTGRES_USER"],
                                              password=os.environ["POSTGRES_PASS"])
-        
-        self.schedule_store = ScheduleMessageStore(self.connection)
-        self.association_store = AssociationMessageStore(self.connection)
-        self.train_status_store = TrainStatusMessageStore(self.connection)
-
+        print("Connected to Postgres. Now instantiating Postgres Store")
+        self.store = PostgresStore(self.connection)
         self.client = client
         
     def on_connected(self, headers, body):
+        print("On Connected")
         self.connection.connect()
-        self.schedule_store.create_tables()
-        self.association_store.create_tables()
-        self.train_status_store.create_tables()
+        self.store.create_tables()
     
     def on_message(self, headers, message):
         m = json.loads(message.decode("utf-8"))
 
-        if "schedule_messages" in m and len(m["schedule_messages"]) > 0:
-            #print("Message includes schedules:")
-            pass
+        snapshot = False
+        if m["message_type"] == "snapshot":
+            snapshot = True
+
         for s in m["schedule_messages"]:
-            #print ("    "+s["rid"])
-            self.schedule_store.save_schedule_message(s)
+            self.store.save_schedule_message(s, snapshot)
 
         for s in m["association_messages"]:
-            self.association_store.save_message(s)
+            self.store.save_association_message(s, snapshot)
 
         for d in m["deactivated_messages"]:
-            self.schedule_store.save_deactivated_message(d)
+            self.store.save_deactivated_message(d, snapshot)
 
         for s in m["train_status_messages"]:
-            self.train_status_store.save_train_status_message(s)
+            self.store.save_train_status_message(s, snapshot)
 
         # Now we have finished processing, ack the message.
         self.client.ack(headers)
