@@ -373,7 +373,7 @@ class Store(BaseStore):
                     p.get("raw_working_departure_time", None),
                 ))
                 i += 1
-        else:
+        elif cursor.rowcount == 1 and snapshot is False:
             #print("+++ Updating Schedule {}".format(message["rid"]))
             cursor.execute(self.update_schedule_query, (
                 message["uid"],
@@ -492,6 +492,8 @@ class Store(BaseStore):
             for r in rows:
                 print("!!! Deleting spurious schedule_location with id {}, rid {}, tiploc {}".format(r[0], r[1], r[4]))
                 cursor.execute("DELETE from {} where id=%s".format(self.table_schedule_location_name), (r[0],))
+        elif cursor.rowcount == 1 and snapshot is True:
+            print("Didn't add schedule {} becuase it's from a snapshot and we arelady have one with that RID.".format(message["rid"]))
 
        
     @Cursor
@@ -530,7 +532,7 @@ class Store(BaseStore):
                 message["associated_service"].get("working_departure_time", None)
             ))
 
-        elif cursor.rowcount == 1:
+        elif cursor.rowcount == 1 and snapshot is False:
             #print("+++ Updating existing Association")
             rows = cursor.fetchall()
             aid = rows[0][0]
@@ -553,6 +555,8 @@ class Store(BaseStore):
                 message["associated_service"].get("working_departure_time", None),
                 aid,
             ))
+        elif cursor.rowcount == 1 and snapshot is True:
+            print("Didn't add assocation message with rids {} and {} because it's from a snapshot and we already have one in the DB.".format(message["main_service"]["rid"], message["associated_service"]["rid"]))
         else:
             print("$$$ Association message matched {} associations in the database."+\
                   "This Shouldn't happen.".format(cursor.rowcount))
