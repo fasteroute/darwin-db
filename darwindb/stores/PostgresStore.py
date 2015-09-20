@@ -260,6 +260,49 @@ class Store(BaseStore):
                 "forecast_departure_source_cis=$35",
                 "id=$36")
 
+        self.update_point_arrival_prepare = "PREPARE ts_update_point_arrival as UPDATE {} SET {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} WHERE {}".format(
+                self.table_schedule_location_name,
+                "suppressed=$1",
+                "length=$2",
+                "detach_front=$3",
+                "platform_suppressed=$4",
+                "platform_suppressed_by_cis=$5",
+                "platform_source=$6",
+                "platform_confirmed=$7",
+                "platform_number=$8",
+                "forecast_arrival_estimated_time=$9",
+                "forecast_arrival_working_estimated_time=$10",
+                "forecast_arrival_actual_time=$11",
+                "forecast_arrival_actual_time_removed=$12",
+                "forecast_arrival_manual_estimate_lower_limit=$13",
+                "forecast_arrival_manual_estimate_unknown_delay=$14",
+                "forecast_arrival_unknown_delay=$15",
+                "forecast_arrival_source=$16",
+                "forecast_arrival_source_cis=$17",
+                "id=$18")
+
+        self.update_point_departure_prepare = "PREPARE ts_update_point_departure as UPDATE {} SET {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} WHERE {}".format(
+                self.table_schedule_location_name,
+                "suppressed=$1",
+                "length=$2",
+                "detach_front=$3",
+                "platform_suppressed=$4",
+                "platform_suppressed_by_cis=$5",
+                "platform_source=$6",
+                "platform_confirmed=$7",
+                "platform_number=$8",
+                "forecast_departure_estimated_time=$9",
+                "forecast_departure_working_estimated_time=$10",
+                "forecast_departure_actual_time=$11",
+                "forecast_departure_actual_time_removed=$12",
+                "forecast_departure_manual_estimate_lower_limit=$13",
+                "forecast_departure_manual_estimate_unknown_delay=$14",
+                "forecast_departure_unknown_delay=$15",
+                "forecast_departure_source=$16",
+                "forecast_departure_source_cis=$17",
+                "id=$18")
+
+
         self.update_schedule_select_tz_prepare = "PREPARE ts_update_schedule_select_tz as UPDATE {} SET {}, {}, {}, {} WHERE {} RETURNING {}".format(
                 self.table_schedule_name,
                 "reverse_formation=$1",
@@ -317,6 +360,8 @@ class Store(BaseStore):
         # Train Status Queries
         cursor.execute(self.select_points_prepare)
         cursor.execute(self.update_point_prepare)
+        cursor.execute(self.update_point_arrival_prepare)
+        cursor.execute(self.update_point_departure_prepare)
         cursor.execute(self.update_schedule_select_tz_prepare)
 
     @Cursor
@@ -917,6 +962,168 @@ class Store(BaseStore):
                             r[0],
                         ))
                         break
+
+                    elif r[1] == m["tiploc"] and \
+                    m["raw_working_arrival_time"] is not None and \
+                    r[7] == m["raw_working_arrival_time"]:
+                        # We have a match based on only arrival time.
+                        #print("    +++ Found matching row.")
+                        found = True
+                        
+                        # Now figure out the times that belong in the forecasts.
+                        # For each time work out if the date has progressed.
+                        arrival_working_estimated_time = None
+                        if r[7] is not None:
+                            if m["arrival"] is not None and m["arrival"].get("working_estimated_time", None) is not None:
+                                arrival_working_estimated_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["working_estimated_time"]).time())
+                        
+                        arrival_estimated_time = None
+                        if r[8] is not None:
+                            if m["arrival"] is not None and m["arrival"].get("estimated_time", None) is not None:
+                                arrival_estimated_time = apply_date_and_tz_to_time(r[3], tz, r[8], parse(m["arrival"]["estimated_time"]).time())
+                        elif r[7] is not None:
+                            if m["arrival"] is not None and m["arrival"].get("estimated_time", None) is not None:
+                                arrival_estimated_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["estimated_time"]).time())
+                        
+                        arrival_actual_time = None
+                        if r[7] is not None:
+                            if m["arrival"] is not None and m["arrival"].get("actual_time", None) is not None:
+                                arrival_actual_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["actual_time"]).time())
+
+                        arrival_manual_estimate_lower_limit = None
+                        if r[7] is not None:
+                            if m["arrival"] is not None and m["arrival"].get("manual_estimate_lower_limit_minutes", None) is not None:
+                                arrival_manual_estimate_lower_limit = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["manual_estimate_lower_limit_minutes"]).time())
+
+                        arrival_actual_time_removed = None
+                        arrival_manual_estimate_unknown_delay = None
+                        arrival_unknown_delay = None
+                        arrival_source = None
+                        arrival_source_cis = None
+
+                        if m.get("arrival", None) is not None:
+                            arrival_actual_time_removed = m["arrival"].get("actual_time_removed", None)
+                            arrival_manual_estimate_unknown_delay = m["arrival"].get("manual_estimate_unknown_delay", None)
+                            arrival_unknown_delay = m["arrival"].get("unknown_delay", None)
+                            arrival_source = m["arrival"].get("source", None)
+                            arrival_source_cis = m["arrival"].get("source_cis", None)
+
+                        if m.get("platform", None) is not None:
+                            platform_suppressed = m["platform"].get("suppressed", None)
+                            platform_suppressed_by_cis = m["platform"].get("suppressed_by_cis", None)
+                            platform_source = m["platform"].get("source", None)
+                            platform_confirmed = m["platform"].get("confirmed", None)
+                            platform_number = m["platform"].get("number", None)
+                        else:
+                            platform_suppressed = None
+                            platform_suppressed_by_cis = None
+                            platform_source = None
+                            platform_confirmed = None
+                            platform_number = None
+
+                        cursor.execute("EXECUTE ts_update_point_arrival (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (
+                            m.get("suppressed", None),
+                            m.get("length", None),
+                            m.get("detach_front", None),
+                            platform_suppressed,
+                            platform_suppressed_by_cis,
+                            platform_source,
+                            platform_confirmed,
+                            platform_number,
+                            arrival_estimated_time,
+                            arrival_working_estimated_time,
+                            arrival_actual_time,
+                            arrival_actual_time_removed,
+                            arrival_manual_estimate_lower_limit,
+                            arrival_manual_estimate_unknown_delay,
+                            arrival_unknown_delay,
+                            arrival_source,
+                            arrival_source_cis,
+                            r[0],
+                        ))
+                        break
+
+                    elif r[1] == m["tiploc"] and \
+                    m["raw_working_departure_time"] is not None and \
+                    r[11] == m["raw_working_departure_time"]:
+                        # Got a match based on just the departure time.
+                        #print("    +++ Found matching row.")
+                        found = True
+                        
+                        # Now figure out the times that belong in the forecasts.
+                        # For each time work out if the date has progressed.
+                        departure_working_estimated_time = None
+                        if r[7] is not None:
+                            if m.get("departure", None) is not None and m["departure"].get("working_estimated_time", None) is not None:
+                                departure_working_estimated_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["departure"]["working_estimated_time"]).time())
+                        
+                        departure_estimated_time = None
+                        if r[8] is not None:
+                            if m.get("departure", None) is not None and m["departure"].get("estimated_time", None) is not None:
+                                departure_estimated_time = apply_date_and_tz_to_time(r[3], tz, r[8], parse(m["departure"]["estimated_time"]).time())
+                        elif r[7] is not None:
+                            if m.get("departure", None) is not None and m["departure"].get("estimated_time", None) is not None:
+                                departure_estimated_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["departure"]["estimated_time"]).time())
+                        
+                        departure_actual_time = None
+                        if r[7] is not None:
+                            if m.get("departure", None) is not None and m["departure"].get("actual_time", None) is not None:
+                                departure_actual_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["departure"]["actual_time"]).time())
+
+                        departure_manual_estimate_lower_limit = None
+                        if r[7] is not None:
+                            if m.get("departure", None) is not None and m["departure"].get("manual_estimate_lower_limit_minutes", None) is not None:
+                                departure_manual_estimate_lower_limit = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["departure"]["manual_estimate_lower_limit_minutes"]).time())
+
+                        departure_actual_time_removed = None
+                        departure_manual_estimate_unknown_delay = None
+                        departure_unknown_delay = None
+                        departure_source = None
+                        departure_source_cis = None
+
+                        if m.get("departure", None) is not None:
+                            departure_actual_time_removed = m["departure"].get("actual_time_removed", None)
+                            departure_manual_estimate_unknown_delay = m["departure"].get("manual_estimate_unknown_delay", None)
+                            departure_unknown_delay = m["departure"].get("unknown_delay", None)
+                            departure_source = m["departure"].get("source", None)
+                            departure_source_cis = m["departure"].get("source_cis", None)
+
+                        
+                        if m.get("platform", None) is not None:
+                            platform_suppressed = m["platform"].get("suppressed", None)
+                            platform_suppressed_by_cis = m["platform"].get("suppressed_by_cis", None)
+                            platform_source = m["platform"].get("source", None)
+                            platform_confirmed = m["platform"].get("confirmed", None)
+                            platform_number = m["platform"].get("number", None)
+                        else:
+                            platform_suppressed = None
+                            platform_suppressed_by_cis = None
+                            platform_source = None
+                            platform_confirmed = None
+                            platform_number = None
+
+                        cursor.execute("EXECUTE ts_update_point_departure (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", (
+                            m.get("suppressed", None),
+                            m.get("length", None),
+                            m.get("detach_front", None),
+                            platform_suppressed,
+                            platform_suppressed_by_cis,
+                            platform_source,
+                            platform_confirmed,
+                            platform_number,
+                            departure_estimated_time,
+                            departure_working_estimated_time,
+                            departure_actual_time,
+                            departure_actual_time_removed,
+                            departure_manual_estimate_lower_limit,
+                            departure_manual_estimate_unknown_delay,
+                            departure_unknown_delay,
+                            departure_source,
+                            departure_source_cis,
+                            r[0],
+                        ))
+                        break
+
                 if not found:
                     print("--- Did not find matching schedule_location row for TS {} at {}".format(message["rid"], m["tiploc"]))
                     print("        Times: {} {} {} {} {}".format(
