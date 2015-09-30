@@ -1,5 +1,5 @@
-DarwinDB
-========
+Darwin-DB
+=========
 
 A system for storing Darwin Push Port messages to a PostgreSQL database.
 
