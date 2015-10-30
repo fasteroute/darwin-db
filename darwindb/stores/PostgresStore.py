@@ -804,25 +804,25 @@ class Store(BaseStore):
                         # For each time work out if the date has progressed.
                         arrival_working_estimated_time = None
                         if r[7] is not None:
-                            if m["arrival"] is not None and m["arrival"].get("working_estimated_time", None) is not None:
+                            if m.get("arrival", None) is not None and m["arrival"].get("working_estimated_time", None) is not None:
                                 arrival_working_estimated_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["working_estimated_time"]).time())
                         
                         arrival_estimated_time = None
                         if r[8] is not None:
-                            if m["arrival"] is not None and m["arrival"].get("estimated_time", None) is not None:
+                            if m.get("arrival", None) is not None and m["arrival"].get("estimated_time", None) is not None:
                                 arrival_estimated_time = apply_date_and_tz_to_time(r[3], tz, r[8], parse(m["arrival"]["estimated_time"]).time())
                         elif r[7] is not None:
-                            if m["arrival"] is not None and m["arrival"].get("estimated_time", None) is not None:
+                            if m.get("arrival", None) is not None and m["arrival"].get("estimated_time", None) is not None:
                                 arrival_estimated_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["estimated_time"]).time())
                         
                         arrival_actual_time = None
                         if r[7] is not None:
-                            if m["arrival"] is not None and m["arrival"].get("actual_time", None) is not None:
+                            if m.get("arrival", None) is not None and m["arrival"].get("actual_time", None) is not None:
                                 arrival_actual_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["actual_time"]).time())
 
                         arrival_manual_estimate_lower_limit = None
                         if r[7] is not None:
-                            if m["arrival"] is not None and m["arrival"].get("manual_estimate_lower_limit_minutes", None) is not None:
+                            if m.get("arrival", None) is not None and m["arrival"].get("manual_estimate_lower_limit_minutes", None) is not None:
                                 arrival_manual_estimate_lower_limit = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["manual_estimate_lower_limit_minutes"]).time())
 
                         arrival_actual_time_removed = None
@@ -841,22 +841,22 @@ class Store(BaseStore):
 
                         pass_working_estimated_time = None
                         if r[9] is not None:
-                            if m["pass"] is not None and m["pass"].get("working_estimated_time", None) is not None:
+                            if m.get("pass", None) is not None and m["pass"].get("working_estimated_time", None) is not None:
                                 pass_working_estimated_time = apply_date_and_tz_to_time(r[4], tz, r[9], parse(m["pass"]["working_estimated_time"]).time())
                         
                         pass_estimated_time = None
                         if r[9] is not None:
-                            if m["pass"] is not None and m["pass"].get("estimated_time", None) is not None:
+                            if m.get("pass", None) is not None and m["pass"].get("estimated_time", None) is not None:
                                 pass_estimated_time = apply_date_and_tz_to_time(r[4], tz, r[9], parse(m["pass"]["estimated_time"]).time())
                         
                         pass_actual_time = None
                         if r[9] is not None:
-                            if m["pass"] is not None and m["pass"].get("actual_time", None) is not None:
+                            if m.get("pass", None) is not None and m["pass"].get("actual_time", None) is not None:
                                 pass_actual_time = apply_date_and_tz_to_time(r[4], tz, r[9], parse(m["pass"]["actual_time"]).time())
 
                         pass_manual_estimate_lower_limit = None
                         if r[9] is not None:
-                            if m["pass"] is not None and m["pass"].get("manual_estimate_lower_limit_minutes", None) is not None:
+                            if m.get("pass", None) is not None and m["pass"].get("manual_estimate_lower_limit_minutes", None) is not None:
                                 pass_manual_estimate_lower_limit = apply_date_and_tz_to_time(r[4], tz, r[9], parse(m["pass"]["manual_estimate_lower_limit_minutes"]).time())
 
                         pass_actual_time_removed = None
@@ -974,25 +974,25 @@ class Store(BaseStore):
                         # For each time work out if the date has progressed.
                         arrival_working_estimated_time = None
                         if r[7] is not None:
-                            if m["arrival"] is not None and m["arrival"].get("working_estimated_time", None) is not None:
+                            if m.get("arrival", None) is not None and m["arrival"].get("working_estimated_time", None) is not None:
                                 arrival_working_estimated_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["working_estimated_time"]).time())
                         
                         arrival_estimated_time = None
                         if r[8] is not None:
-                            if m["arrival"] is not None and m["arrival"].get("estimated_time", None) is not None:
+                            if m.get("arrival", None) is not None and m["arrival"].get("estimated_time", None) is not None:
                                 arrival_estimated_time = apply_date_and_tz_to_time(r[3], tz, r[8], parse(m["arrival"]["estimated_time"]).time())
                         elif r[7] is not None:
-                            if m["arrival"] is not None and m["arrival"].get("estimated_time", None) is not None:
+                            if m.get("arrival", None) is not None and m["arrival"].get("estimated_time", None) is not None:
                                 arrival_estimated_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["estimated_time"]).time())
                         
                         arrival_actual_time = None
                         if r[7] is not None:
-                            if m["arrival"] is not None and m["arrival"].get("actual_time", None) is not None:
+                            if m.get("arrival", None) is not None and m["arrival"].get("actual_time", None) is not None:
                                 arrival_actual_time = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["actual_time"]).time())
 
                         arrival_manual_estimate_lower_limit = None
                         if r[7] is not None:
-                            if m["arrival"] is not None and m["arrival"].get("manual_estimate_lower_limit_minutes", None) is not None:
+                            if m.get("arrival", None) is not None and m["arrival"].get("manual_estimate_lower_limit_minutes", None) is not None:
                                 arrival_manual_estimate_lower_limit = apply_date_and_tz_to_time(r[2], tz, r[7], parse(m["arrival"]["manual_estimate_lower_limit_minutes"]).time())
 
                         arrival_actual_time_removed = None
